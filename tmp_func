@@ -1,0 +1,55 @@
+create or replace 
+FUNCTION     FN_DEDUBL_STR(inSTR IN VARCHAR2, inDelim IN VARCHAR2 DEFAULT ',') 
+  RETURN VARCHAR2
+-- ========================================================================
+-- ==	ФУНКЦИЯ     "Дедубликация слов по разделителю в строки"
+-- ==	ОПИСАНИЕ:   схлопывает исходную строку inSTR в строку без дублей return_Str 
+-- ==             по разделителю ','
+-- ========================================================================
+-- ==	СОЗДАНИЕ:		  24.08.2015 (ТРАХАЧЕВ В.В.)
+-- ==	МОДИФИКАЦИЯ:	25.08.2015 (ТРАХАЧЕВ В.В.)
+-- ========================================================================
+IS
+	returnStr VARCHAR2(4000);
+BEGIN
+	SELECT DISTINCT LISTAGG(STRING_DELIM,inDelim) WITHIN GROUP (ORDER BY REQUEST_ID) OVER(PARTITION BY REQUEST_ID) INTO returnStr
+  FROM (select DISTINCT 1 as REQUEST_ID, TRIM(regexp_substr(inSTR, '[^'||inDelim||']+', 1, level)) STRING_DELIM from dual t
+          CONNECT BY instr(trim(inDelim from inSTR), inDelim , 1, level - 1) > 0 
+          ORDER BY STRING_DELIM);
+	
+  --DBMS_OUTPUT.put_line('returning str: '||returnStr);
+  RETURN returnStr;
+END;
+
+create or replace 
+FUNCTION     FN_DIST_HAMM (
+  as_src_i                         IN VARCHAR2
+, as_trg_i                         IN VARCHAR2
+)
+RETURN NUMBER
+DETERMINISTIC
+AS
+/* Самописное расстояние Хемминга для нечеткого поиска */
+  ln_src_len                       PLS_INTEGER := NVL(LENGTH(as_src_i), 0);
+  ln_trg_len                       PLS_INTEGER := NVL(LENGTH(as_trg_i), 0);
+  ln_distance                      PLS_INTEGER := 0;
+BEGIN
+  IF (ln_src_len <> ln_trg_len)
+  THEN
+    RETURN NULL;
+  END IF;
+
+  IF (ln_src_len = 0)
+  THEN
+    RETURN ln_src_len;
+  END IF;
+
+  FOR i IN 1..ln_src_len
+  LOOP
+    IF (SUBSTR(as_src_i, i, 1) <> SUBSTR(as_trg_i, i, 1))
+    THEN
+      ln_distance := ln_distance + 1;
+    END IF;
+  END LOOP;
+  RETURN ln_distance;
+END FN_DIST_HAMM;
